@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bibbidi — Tải ảnh & video từ link</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="bg-glow bg-glow--1" aria-hidden="true"></div>
+    <div class="bg-glow bg-glow--2" aria-hidden="true"></div>
+
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          </span>
+          <div>
+            <h1>Bibbidi</h1>
+            <p>Media Grabber — tải ảnh &amp; video từ mọi trang web</p>
+          </div>
+        </div>
+        <div class="platform-tags" aria-label="Nền tảng hỗ trợ">
+          <span class="tag">Blog</span>
+          <span class="tag">Shop</span>
+          <span class="tag tag--accent">1688</span>
+          <span class="tag">News</span>
+        </div>
+      </header>
+
+      <section class="steps" aria-label="Các bước sử dụng">
+        <div class="step active" data-step="1">
+          <span class="step-num">1</span>
+          <span class="step-label">Dán link</span>
+        </div>
+        <div class="step-line" aria-hidden="true"></div>
+        <div class="step" data-step="2">
+          <span class="step-num">2</span>
+          <span class="step-label">Quét trang</span>
+        </div>
+        <div class="step-line" aria-hidden="true"></div>
+        <div class="step" data-step="3">
+          <span class="step-num">3</span>
+          <span class="step-label">Tải về máy</span>
+        </div>
+      </section>
+
+      <section class="hero-card">
+        <div id="dropZone" class="drop-zone">
+          <div class="drop-header">
+            <div class="drop-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M10 13a5 5 0 0 1 7.07 0l1.41 1.41a5 5 0 0 1-7.07 7.07L10 19" />
+                <path d="M14 11a5 5 0 0 0-7.07 0L5.52 12.4a5 5 0 0 0 7.07 7.07L14 17" />
+              </svg>
+            </div>
+            <div class="drop-copy">
+              <p class="drop-title">Dán link trang web</p>
+              <p class="drop-sub">Dán link (Ctrl+V) — tự động quét &amp; tải về máy</p>
+            </div>
+          </div>
+
+          <div class="url-field">
+            <span class="url-prefix" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+              </svg>
+            </span>
+            <input
+              id="pageUrl"
+              type="url"
+              placeholder="https://detail.1688.com/offer/..."
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button id="clearUrlBtn" type="button" class="icon-btn hidden" title="Xóa link" aria-label="Xóa link">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          <p id="hint1688" class="hint-1688 hidden">
+            Link 1688: tool tự lấy phiên đăng nhập từ Chrome của bạn (có thể đóng/mở lại Chrome một lần).
+          </p>
+
+          <div class="hero-actions">
+            <button id="scrapeBtn" type="button" class="btn-primary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              Quét trang
+            </button>
+            <label class="toggle-pill hidden" aria-hidden="true">
+              <input id="autoDownload" type="checkbox" checked />
+              <span class="toggle-track"></span>
+              <span class="toggle-text">Tự động tải khi dán link</span>
+            </label>
+          </div>
+        </div>
+
+        <div id="progressWrap" class="progress-wrap hidden">
+          <div class="progress-head">
+            <span id="progressLabel">Đang xử lý...</span>
+            <span id="progressPct">0%</span>
+          </div>
+          <div class="progress-bar">
+            <div id="progressFill" class="progress-fill"></div>
+          </div>
+        </div>
+      </section>
+
+      <div id="status" class="status-banner hidden" role="status">
+        <span id="statusIcon" class="status-icon" aria-hidden="true"></span>
+        <div class="status-body">
+          <p id="statusText"></p>
+          <p id="statusFolder" class="status-folder hidden"></p>
+        </div>
+        <button id="copyFolderBtn" type="button" class="btn-ghost hidden">Sao chép đường dẫn</button>
+      </div>
+
+      <section id="welcome" class="welcome">
+        <article class="tip-card">
+          <div class="tip-icon-wrap tip-icon-wrap--blue">
+            <span class="tip-icon" aria-hidden="true">📋</span>
+          </div>
+          <div>
+            <strong>Dán link</strong>
+            <p>Copy URL trang bài viết, album ảnh, sản phẩm...</p>
+          </div>
+        </article>
+        <article class="tip-card">
+          <div class="tip-icon-wrap tip-icon-wrap--purple">
+            <span class="tip-icon" aria-hidden="true">🔍</span>
+          </div>
+          <div>
+            <strong>Tự động quét</strong>
+            <p>Tìm tất cả ảnh và video trên trang</p>
+          </div>
+        </article>
+        <article class="tip-card">
+          <div class="tip-icon-wrap tip-icon-wrap--green">
+            <span class="tip-icon" aria-hidden="true">💾</span>
+          </div>
+          <div>
+            <strong>Lưu về máy</strong>
+            <p>File nằm trong thư mục <code>downloads/</code></p>
+          </div>
+        </article>
+      </section>
+
+      <section id="results" class="results hidden">
+        <div class="results-top">
+          <div class="page-info">
+            <h2 id="pageTitle">Kết quả</h2>
+            <a id="pageLink" class="page-link" href="#" target="_blank" rel="noopener noreferrer"></a>
+          </div>
+          <div class="stat-row">
+            <div class="stat-chip images">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <path d="m21 15-5-5L5 21" />
+              </svg>
+              <span id="imageCount">0</span> ảnh
+            </div>
+            <div class="stat-chip videos">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <polygon points="23 7 16 12 23 17 23 7" />
+                <rect x="1" y="5" width="15" height="14" rx="2" />
+              </svg>
+              <span id="videoCount">0</span> video
+            </div>
+            <div class="stat-chip total">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span id="totalCount">0</span> tổng
+            </div>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="filter-tabs" role="tablist" aria-label="Lọc media">
+            <button class="filter-tab active" data-filter="all" type="button" role="tab">Tất cả</button>
+            <button class="filter-tab" data-filter="image" type="button" role="tab">Ảnh</button>
+            <button class="filter-tab" data-filter="video" type="button" role="tab">Video</button>
+          </div>
+          <div class="toolbar-actions">
+            <button id="selectAllBtn" type="button" class="btn-secondary">Chọn tất cả</button>
+            <button id="downloadBtn" type="button" class="btn-primary btn-sm">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Tải đã chọn (<span id="selectedCount">0</span>)
+            </button>
+          </div>
+        </div>
+
+        <div id="mediaGrid" class="media-grid"></div>
+
+        <div id="emptyFilter" class="empty-filter hidden">
+          <div class="empty-icon" aria-hidden="true">📭</div>
+          <p>Không có file loại này.</p>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <p>Chạy local tại <code>localhost:3456</code> · File lưu trong <code>downloads/</code></p>
+      </footer>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

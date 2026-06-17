@@ -1,0 +1,16 @@
+{
+  "name": "bibbidi-media-grabber",
+  "version": "1.0.0",
+  "description": "Dán link trang web để lấy ảnh và video",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "@primno/dpapi": "^2.0.1",
+    "cheerio": "^1.0.0",
+    "express": "^4.21.2",
+    "playwright": "^1.61.0"
+  }
+}
