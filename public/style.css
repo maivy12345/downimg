@@ -403,11 +403,71 @@ body {
   text-align: left;
 }
 
-.hint-1688 .btn-xs {
+.panel-1688 {
+  position: relative;
+  z-index: 2;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(109, 140, 255, 0.08);
+  border: 1px solid rgba(109, 140, 255, 0.22);
+  text-align: left;
+}
+
+.panel-1688-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.panel-1688-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #dce4f5;
+}
+
+.panel-1688-desc {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
+  color: #9aa8c4;
+  line-height: 1.45;
+}
+
+.session-badge {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.session-badge--on {
+  background: rgba(52, 211, 153, 0.15);
+  color: #6ee7b7;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+}
+
+.session-badge--off {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fca5a5;
+  border: 1px solid rgba(248, 113, 113, 0.28);
+}
+
+.panel-1688 .btn-sm {
   display: inline-flex;
-  margin-top: 8px;
-  padding: 7px 12px;
-  font-size: 0.8rem;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+}
+
+.panel-1688 .btn-sm svg {
+  width: 16px;
+  height: 16px;
 }
 
 .hero-actions {
@@ -775,6 +835,54 @@ button {
 
 .stat-chip.total {
   color: var(--success);
+}
+
+/* ── Save options ── */
+.save-options {
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  background: rgba(20, 24, 32, 0.9);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.save-options-fields {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.save-label {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+#saveFolderName {
+  flex: 1;
+  min-width: 180px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.92rem;
+  padding: 10px 12px;
+}
+
+#saveFolderName:focus {
+  outline: none;
+  border-color: rgba(109, 140, 255, 0.55);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.save-path-hint {
+  margin: 10px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 /* ── Toolbar ── */

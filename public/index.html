@@ -57,6 +57,24 @@
       </section>
 
       <section class="hero-card">
+        <div id="panel1688" class="panel-1688">
+          <div class="panel-1688-head">
+            <span class="panel-1688-title">1688.com</span>
+            <span id="session1688Badge" class="session-badge session-badge--off">Chưa đăng nhập</span>
+          </div>
+          <p class="panel-1688-desc">
+            Bấm đăng nhập trước khi dán link 1688 — tool tự lưu tài khoản, lần sau không cần đăng nhập lại.
+          </p>
+          <button id="login1688Btn" type="button" class="btn-secondary btn-sm">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+              <polyline points="10 17 15 12 10 7" />
+              <line x1="15" y1="12" x2="3" y2="12" />
+            </svg>
+            Đăng nhập 1688
+          </button>
+        </div>
+
         <div id="dropZone" class="drop-zone">
           <div class="drop-header">
             <div class="drop-icon" aria-hidden="true">
@@ -94,7 +112,7 @@
           </div>
 
           <p id="hint1688" class="hint-1688 hidden">
-            Link 1688: tool tự lấy phiên đăng nhập từ Chrome của bạn (có thể đóng/mở lại Chrome một lần).
+            Link 1688: dùng phiên đã lưu ở trên. Nếu lỗi, bấm Đăng nhập 1688 lại.
           </p>
 
           <div class="hero-actions">
@@ -158,7 +176,7 @@
           </div>
           <div>
             <strong>Lưu về máy</strong>
-            <p>File nằm trong thư mục <code>downloads/</code></p>
+            <p>Chọn thư mục &amp; đặt tên khi bấm Tải</p>
           </div>
         </article>
       </section>
@@ -196,6 +214,22 @@
           </div>
         </div>
 
+        <div class="save-options">
+          <div class="save-options-fields">
+            <label class="save-label" for="saveFolderName">Tên thư mục</label>
+            <input
+              id="saveFolderName"
+              type="text"
+              placeholder="ten-san-pham"
+              spellcheck="false"
+              autocomplete="off"
+            />
+          </div>
+          <p id="savePathHint" class="save-path-hint">
+            Khi bấm Tải, bạn chọn thư mục lưu trên máy (Desktop, Downloads…).
+          </p>
+        </div>
+
         <div class="toolbar">
           <div class="filter-tabs" role="tablist" aria-label="Lọc media">
             <button class="filter-tab active" data-filter="all" type="button" role="tab">Tất cả</button>
@@ -224,7 +258,7 @@
       </section>
 
       <footer class="footer">
-        <p>Chạy local tại <code>localhost:3456</code> · File lưu trong <code>downloads/</code></p>
+        <p>Chạy local tại <code>localhost:3456</code> · Tự chọn nơi lưu khi tải</p>
       </footer>
     </div>
 

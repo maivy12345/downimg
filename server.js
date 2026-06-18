@@ -3,7 +3,7 @@ const cheerio = require("cheerio");
 const fs = require("fs/promises");
 const path = require("path");
 const { URL } = require("url");
-const { is1688ProductUrl, fetch1688Media, extractMediaFromEmbeddedJson, sync1688Login } = require("./lib/1688");
+const { is1688ProductUrl, fetch1688Media, extractMediaFromEmbeddedJson, sync1688Login, open1688Login, get1688SessionStatus } = require("./lib/1688");
 
 const app = express();
 const PORT = process.env.PORT || 3456;
@@ -215,6 +215,24 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+app.get("/api/1688/status", async (_req, res) => {
+  try {
+    const status = await get1688SessionStatus();
+    res.json({ ok: true, ...status });
+  } catch (error) {
+    res.status(500).json({ ok: false, loggedIn: false, hasSession: false });
+  }
+});
+
+app.post("/api/1688/login", async (_req, res) => {
+  try {
+    const result = await open1688Login();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error.message || "Không mở được trình duyệt đăng nhập." });
+  }
+});
+
 app.post("/api/1688/sync", async (_req, res) => {
   try {
     const result = await sync1688Login();
@@ -261,7 +279,7 @@ app.post("/api/scrape", async (req, res) => {
 });
 
 app.post("/api/grab", async (req, res) => {
-  const { url } = req.body || {};
+  const { url, folderName, outputDir } = req.body || {};
   if (!url || typeof url !== "string") {
     return res.status(400).json({ error: "Vui lòng nhập link trang web." });
   }
@@ -283,8 +301,8 @@ app.post("/api/grab", async (req, res) => {
       return res.status(404).json({ error: "Không tìm thấy ảnh hoặc video nào." });
     }
 
-    const folderName = `${sanitizeFilename(result.pageTitle)}_${Date.now().toString(36)}`;
-    const targetDir = path.join(DOWNLOADS_DIR, folderName);
+    const targetDir = resolveTargetDir(outputDir, folderName, result.pageTitle);
+    const resolvedFolderName = path.basename(targetDir);
     await fs.mkdir(targetDir, { recursive: true });
 
     const downloadResults = [];
@@ -318,7 +336,7 @@ app.post("/api/grab", async (req, res) => {
       videos,
       total: result.media.length,
       folder: targetDir,
-      folderName,
+      folderName: resolvedFolderName,
       downloaded: downloaded.length,
       failed: failed.length,
       results: downloadResults,
@@ -365,6 +383,15 @@ async function downloadMediaFile(mediaUrl, referer) {
   return { buffer, contentType, type };
 }
 
+function resolveTargetDir(outputDir, folderName, pageTitle) {
+  const safeName = sanitizeFilename(folderName || pageTitle || "media");
+  if (outputDir && typeof outputDir === "string" && outputDir.trim()) {
+    const base = path.resolve(outputDir.trim());
+    return path.join(base, safeName);
+  }
+  return path.join(DOWNLOADS_DIR, `${safeName}_${Date.now().toString(36)}`);
+}
+
 function buildFilename(index, item, contentType) {
   const ext = guessExtension(contentType, item.url, item.type);
   const base = sanitizeFilename(item.title || item.type || "media");
@@ -373,7 +400,7 @@ function buildFilename(index, item, contentType) {
 }
 
 app.post("/api/download-all", async (req, res) => {
-  const { url, items } = req.body || {};
+  const { url, items, folderName, outputDir } = req.body || {};
 
   let mediaItems = Array.isArray(items) ? items : null;
   let pageTitle = "media";
@@ -411,8 +438,8 @@ app.post("/api/download-all", async (req, res) => {
     return res.status(404).json({ error: "Không tìm thấy ảnh hoặc video nào." });
   }
 
-  const folderName = `${sanitizeFilename(pageTitle)}_${Date.now().toString(36)}`;
-  const targetDir = path.join(DOWNLOADS_DIR, folderName);
+  const targetDir = resolveTargetDir(outputDir, folderName, pageTitle);
+  const resolvedFolderName = path.basename(targetDir);
 
   try {
     await fs.mkdir(targetDir, { recursive: true });
@@ -443,7 +470,7 @@ app.post("/api/download-all", async (req, res) => {
       pageTitle,
       pageUrl,
       folder: targetDir,
-      folderName,
+      folderName: resolvedFolderName,
       downloaded: downloaded.length,
       failed: failed.length,
       total: mediaItems.length,
@@ -465,7 +492,10 @@ app.get("/api/proxy", async (req, res) => {
   }
 
   try {
-    const { buffer, contentType } = await downloadMediaFile(mediaUrl);
+    const { buffer, contentType } = await downloadMediaFile(
+      mediaUrl,
+      req.query.referer || req.query.pageUrl
+    );
     const type = contentType.startsWith("video/") ? "video" : "image";
     const ext = guessExtension(contentType, mediaUrl, type);
     const safeName = sanitizeFilename(filename || `media${ext}`);

@@ -1,5 +1,7 @@
 const pageUrlInput = document.getElementById("pageUrl");
 const hint1688 = document.getElementById("hint1688");
+const session1688Badge = document.getElementById("session1688Badge");
+const login1688Btn = document.getElementById("login1688Btn");
 const scrapeBtn = document.getElementById("scrapeBtn");
 const clearUrlBtn = document.getElementById("clearUrlBtn");
 const autoDownloadToggle = document.getElementById("autoDownload");
@@ -23,6 +25,8 @@ const totalCountEl = document.getElementById("totalCount");
 const selectedCountEl = document.getElementById("selectedCount");
 const selectAllBtn = document.getElementById("selectAllBtn");
 const downloadBtn = document.getElementById("downloadBtn");
+const saveFolderNameInput = document.getElementById("saveFolderName");
+const savePathHint = document.getElementById("savePathHint");
 const mediaGrid = document.getElementById("mediaGrid");
 const emptyFilter = document.getElementById("emptyFilter");
 const stepEls = document.querySelectorAll(".step");
@@ -36,11 +40,12 @@ let isBusy = false;
 const URL_PATTERN = /^https?:\/\/.+/i;
 const IS_1688 = /1688\.com/i;
 const API_TIMEOUT_MS = 240000;
+const LOGIN_TIMEOUT_MS = 360000;
 const CHECK_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>`;
 
-async function apiPost(path, body) {
+async function apiPost(path, body, timeoutMs = API_TIMEOUT_MS) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(path, {
       method: "POST",
@@ -54,11 +59,11 @@ async function apiPost(path, body) {
     } catch {
       throw new Error("Server trả về dữ liệu không hợp lệ.");
     }
-    if (!response.ok) throw new Error(data.error || "Yêu cầu thất bại.");
+    if (!response.ok) throw new Error(data.error || data.message || "Yêu cầu thất bại.");
     return data;
   } catch (error) {
     if (error.name === "AbortError") {
-      throw new Error("Xử lý quá lâu (>3 phút). Thử lại hoặc dùng link trang khác.");
+      throw new Error("Xử lý quá lâu. Thử lại hoặc dùng link trang khác.");
     }
     if (error.message === "Failed to fetch" || error instanceof TypeError) {
       throw new Error(
@@ -69,6 +74,43 @@ async function apiPost(path, body) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function apiGet(path) {
+  const response = await fetch(path);
+  let data = {};
+  try {
+    data = await response.json();
+  } catch {
+    return {};
+  }
+  return data;
+}
+
+function formatSavedAt(iso) {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" });
+  } catch {
+    return "";
+  }
+}
+
+function updateSessionBadge(loggedIn, savedAt) {
+  if (loggedIn) {
+    session1688Badge.textContent = savedAt
+      ? `Đã lưu · ${formatSavedAt(savedAt)}`
+      : "Đã lưu tài khoản";
+    session1688Badge.className = "session-badge session-badge--on";
+    return;
+  }
+  session1688Badge.textContent = "Chưa đăng nhập";
+  session1688Badge.className = "session-badge session-badge--off";
+}
+
+async function refresh1688Session() {
+  const data = await apiGet("/api/1688/status");
+  updateSessionBadge(!!data.loggedIn, data.savedAt);
 }
 
 function setStep(step) {
@@ -146,10 +188,125 @@ function updateSelectedCount() {
   selectedCountEl.textContent = String(count);
 }
 
-function proxyUrl(mediaUrl, filename) {
+function proxyUrl(mediaUrl, filename, pageUrl) {
   const params = new URLSearchParams({ url: mediaUrl });
   if (filename) params.set("filename", filename);
+  if (pageUrl) params.set("referer", pageUrl);
   return `/api/proxy?${params.toString()}`;
+}
+
+function sanitizeSaveName(name) {
+  return (
+    String(name || "media")
+      .replace(/[<>:"/\\|?*\x00-\x1F]/g, "_")
+      .trim()
+      .slice(0, 80) || "media"
+  );
+}
+
+function guessExtension(contentType, mediaUrl, type) {
+  const fromUrl = mediaUrl.split("?")[0].split("#")[0].match(/\.([a-z0-9]+)$/i);
+  if (fromUrl) return `.${fromUrl[1].toLowerCase()}`;
+  if (contentType) {
+    if (contentType.includes("jpeg")) return ".jpg";
+    if (contentType.includes("png")) return ".png";
+    if (contentType.includes("webp")) return ".webp";
+    if (contentType.includes("gif")) return ".gif";
+    if (contentType.includes("mp4")) return ".mp4";
+    if (contentType.includes("webm")) return ".webm";
+  }
+  return type === "video" ? ".mp4" : ".jpg";
+}
+
+function buildLocalFilename(index, item, contentType, mediaUrl) {
+  const ext = guessExtension(contentType, mediaUrl, item.type);
+  const base = sanitizeSaveName(item.title || item.type || "media");
+  return `${String(index + 1).padStart(3, "0")}_${base}${ext}`;
+}
+
+async function pickSaveDirectory() {
+  if (typeof window.showDirectoryPicker !== "function") return null;
+  return window.showDirectoryPicker({ mode: "readwrite", id: "bibbidi-save" });
+}
+
+async function downloadViaFileSystem(dirHandle, folderName, items, pageUrl, onProgress) {
+  const safeFolder = sanitizeSaveName(folderName);
+  const folderHandle = await dirHandle.getDirectoryHandle(safeFolder, { create: true });
+  let downloaded = 0;
+  let failed = 0;
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    onProgress?.(i, items.length);
+    try {
+      const response = await fetch(proxyUrl(item.url, null, pageUrl));
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const contentType = response.headers.get("content-type") || "";
+      const blob = await response.blob();
+      const filename = buildLocalFilename(i, item, contentType, item.url);
+      const fileHandle = await folderHandle.getFileHandle(filename, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      downloaded++;
+    } catch {
+      failed++;
+    }
+  }
+
+  return {
+    downloaded,
+    failed,
+    total: items.length,
+    folder: `${dirHandle.name}\\${safeFolder}`,
+    folderName: safeFolder,
+  };
+}
+
+async function downloadViaServer(url, items, folderName, outputDir) {
+  return apiPost("/api/download-all", { url, items, folderName, outputDir });
+}
+
+async function downloadWithPicker(url, items) {
+  const folderName = sanitizeSaveName(saveFolderNameInput?.value?.trim());
+  if (!folderName) {
+    throw new Error("Vui lòng nhập tên thư mục.");
+  }
+
+  try {
+    const dirHandle = await pickSaveDirectory();
+    if (dirHandle) {
+      setStatus("Đang lưu file vào thư mục bạn chọn...", "info");
+      const result = await downloadViaFileSystem(dirHandle, folderName, items, url, (i, total) => {
+        setProgress(true, `Đang lưu ${i + 1}/${total}...`, ((i + 1) / total) * 100);
+      });
+      if (savePathHint) {
+        savePathHint.textContent = `Đã lưu vào: ${result.folder}`;
+      }
+      return result;
+    }
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("Bạn đã hủy chọn thư mục.");
+    }
+    if (error.name !== "SecurityError") {
+      throw error;
+    }
+  }
+
+  const outputDir = window.prompt(
+    "Nhập đường dẫn thư mục cha trên máy (vd: C:\\Users\\Tên\\Desktop):",
+    ""
+  );
+  if (!outputDir?.trim()) {
+    throw new Error("Chưa chọn thư mục lưu.");
+  }
+
+  const result = await downloadViaServer(url, items, folderName, outputDir.trim());
+  if (savePathHint) {
+    savePathHint.textContent = `Đã lưu vào: ${result.folder}`;
+  }
+  return result;
 }
 
 function createMediaCard(item, index) {
@@ -268,6 +425,13 @@ function renderResults(data) {
 
   welcomeEl.classList.add("hidden");
   resultsEl.classList.remove("hidden");
+  if (saveFolderNameInput) {
+    saveFolderNameInput.value = sanitizeSaveName(data.pageTitle || "media");
+  }
+  if (savePathHint) {
+    savePathHint.textContent =
+      "Khi bấm Tải, bạn chọn thư mục lưu trên máy (Desktop, Downloads…).";
+  }
   applyFilter(currentFilter);
   updateSelectedCount();
   setStep(2);
@@ -281,14 +445,6 @@ function getSelectedMedia() {
 
 async function scrapePage(url) {
   return apiPost("/api/scrape", { url });
-}
-
-async function grabPage(url) {
-  return apiPost("/api/grab", { url });
-}
-
-async function downloadToDisk(url, items) {
-  return apiPost("/api/download-all", items ? { url, items } : { url });
 }
 
 async function handleScrape(autoDownload = false) {
@@ -306,25 +462,28 @@ async function handleScrape(autoDownload = false) {
 
   try {
     const is1688 = IS_1688.test(url);
-    const statusMsg = is1688
-      ? "Đang lấy dữ liệu 1688 từ Chrome của bạn..."
-      : "Đang quét trang...";
+    const statusMsg = is1688 ? "Đang lấy dữ liệu 1688..." : "Đang quét trang...";
     setStatus(statusMsg, "info");
     await animateProgress(0, 30, statusMsg, 600);
 
     const shouldAutoDownload = autoDownload;
 
     if (shouldAutoDownload) {
-      const data = await grabPage(url);
+      const data = await scrapePage(url);
       renderResults(data);
-      await animateProgress(30, 90, `Đã tải ${data.downloaded}/${data.total} file`, 500);
-      setStep(3);
-      const msg =
-        data.failed > 0
-          ? `Tải xong ${data.downloaded}/${data.total} file (${data.failed} lỗi)`
-          : `Tải xong ${data.downloaded} file!`;
-      setStatus(msg, data.downloaded ? "success" : "error", data.folder);
-      await animateProgress(90, 100, "Hoàn tất!", 300);
+
+      if (!currentMedia.length) {
+        setProgress(false);
+        setStatus("Không tìm thấy ảnh hoặc video trên trang này.", "error");
+        return;
+      }
+
+      await animateProgress(30, 70, `Tìm thấy ${currentMedia.length} file`, 400);
+      setProgress(false);
+      setStatus(
+        `Tìm thấy ${currentMedia.length} file — đặt tên thư mục rồi bấm Tải đã chọn.`,
+        "success"
+      );
       return;
     }
 
@@ -349,6 +508,48 @@ async function handleScrape(autoDownload = false) {
   }
 }
 
+let isLoginBusy = false;
+
+async function handle1688Login() {
+  if (isLoginBusy) {
+    setStatus("Đang mở trình duyệt đăng nhập, vui lòng đợi...", "info");
+    return;
+  }
+
+  isLoginBusy = true;
+  if (login1688Btn) login1688Btn.disabled = true;
+  clearStatus();
+  setStatus("Đang mở trình duyệt — hãy đăng nhập 1688 trong cửa sổ vừa hiện...", "info");
+  setProgress(true, "Chờ đăng nhập 1688...", 15);
+
+  try {
+    const data = await apiPost("/api/1688/login", {}, LOGIN_TIMEOUT_MS);
+    setProgress(false);
+
+    if (!data.ok) {
+      setStatus(data.message || "Đăng nhập chưa thành công.", "error");
+      return;
+    }
+
+    updateSessionBadge(true, data.savedAt);
+    setStatus(data.message, "success");
+  } catch (error) {
+    setProgress(false);
+    const msg = error.message || "Không đăng nhập được.";
+    if (msg.includes("Failed to fetch") || msg.includes("kết nối")) {
+      setStatus("Server chưa chạy hoặc chưa cập nhật. Chạy lại npm start rồi thử.", "error");
+    } else if (msg.includes("không hợp lệ")) {
+      setStatus("Server chưa có API đăng nhập. Tắt server (Ctrl+C) rồi chạy lại npm start.", "error");
+    } else {
+      setStatus(msg, "error");
+    }
+  } finally {
+    isLoginBusy = false;
+    if (login1688Btn) login1688Btn.disabled = false;
+    refresh1688Session().catch(() => {});
+  }
+}
+
 async function handleDownloadSelected() {
   const selected = getSelectedMedia();
   const url = pageUrlInput.value.trim();
@@ -360,10 +561,17 @@ async function handleDownloadSelected() {
 
   setBusy(true);
   try {
-    setStatus(`Đang tải ${selected.length} file...`, "info");
-    await animateProgress(0, 80, `Đang tải ${selected.length} file...`, 600);
+    const folderName = sanitizeSaveName(saveFolderNameInput?.value?.trim());
+    if (!folderName) {
+      setStatus("Vui lòng nhập tên thư mục trước khi tải.", "error");
+      saveFolderNameInput?.focus();
+      return;
+    }
 
-    const result = await downloadToDisk(url, selected);
+    setStatus(`Chọn thư mục lưu cho ${selected.length} file...`, "info");
+    await animateProgress(0, 20, "Chờ bạn chọn thư mục...", 300);
+
+    const result = await downloadWithPicker(url, selected);
     await animateProgress(80, 100, "Hoàn tất!", 300);
     setStep(3);
 
@@ -382,16 +590,30 @@ async function handleDownloadSelected() {
   }
 }
 
-function scheduleAutoScrape() {
+async function scheduleAutoScrape() {
   const url = pageUrlInput.value.trim();
   updateClearBtn();
-  if (!URL_PATTERN.test(url) || isBusy) return;
+  if (!URL_PATTERN.test(url) || isBusy || isLoginBusy) return;
+
+  if (IS_1688.test(url)) {
+    try {
+      const status = await apiGet("/api/1688/status");
+      if (!status.loggedIn) return;
+    } catch {
+      return;
+    }
+  }
+
   handleScrape(true);
 }
 
 let pasteTimer = null;
 
 scrapeBtn.addEventListener("click", () => handleScrape(false));
+
+if (login1688Btn) {
+  login1688Btn.addEventListener("click", handle1688Login);
+}
 
 downloadBtn.addEventListener("click", handleDownloadSelected);
 
@@ -461,6 +683,7 @@ updateClearBtn();
 fetch("/api/health")
   .then((r) => {
     if (!r.ok) throw new Error();
+    return refresh1688Session();
   })
   .catch(() => {
     setStatus(

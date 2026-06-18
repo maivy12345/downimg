@@ -4,4 +4,5 @@ downloads/
 .pw-profile/
 .1688-session.json
 .chrome-cookies-copy.db
+.setup-done
 test-*.js
